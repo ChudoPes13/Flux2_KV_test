@@ -47,6 +47,11 @@ def main() -> int:
         "created_at": utc_timestamp(),
         "status": "pending",
         "model_path": args.model_path,
+        "model_dir": args.model_path,
+        "variant": "official_supported",
+        "mode": "visualgen_supported_model_load",
+        "prompt_cache_used": False,
+        "smoke_test_only": False,
         "purpose": (
             "Separate TensorRT-LLM VisualGen support/runtime issues from "
             "ApacheOne/Klein-KV checkpoint layout issues."
@@ -54,6 +59,12 @@ def main() -> int:
         "cuda_capability": env.get("cuda_capability"),
         "is_blackwell_or_newer": bool(env.get("is_blackwell_or_newer", False)),
         "nvfp4_target_gpu": bool(env.get("nvfp4_target_gpu", False)),
+        "gpu_name": env.get("gpu_name"),
+        "vram_total_gb": env.get("vram_total_gb"),
+        "vram_free_before_load": env.get("vram_free_before_load"),
+        "docker_image": env.get("docker_image"),
+        "torch_version": env.get("torch_cuda", {}).get("torch_version"),
+        "tensorrt_llm_version": _import_version(env, "tensorrt_llm"),
         "force_non_target": args.force_non_target,
         "visualgen_generate_signature": None,
         "visualgen_args_signature": None,
@@ -64,6 +75,8 @@ def main() -> int:
         "worker_stderr_tail": None,
         "detected_oom": False,
         "detected_unsupported_arch": False,
+        "detected_missing_model_index": False,
+        "detected_invalid_safetensors": False,
         "error": None,
         "traceback": None,
         "env": env,
@@ -178,10 +191,35 @@ def _set_error_flags(report: dict) -> None:
             "unsupported architecture",
         ]
     )
+    report["detected_missing_model_index"] = any(
+        pattern in combined
+        for pattern in [
+            "model_index.json",
+            "missing model_index",
+            "does not appear to have a file named model_index",
+        ]
+    )
+    report["detected_invalid_safetensors"] = any(
+        pattern in combined
+        for pattern in [
+            "invalid safetensors",
+            "safetensorerror",
+            "safetensors_rust",
+            "header too large",
+            "metadata incomplete buffer",
+        ]
+    )
 
 
 def _safe_name(value: str) -> str:
     return "".join(char if char.isalnum() else "_" for char in value).strip("_").lower()
+
+
+def _import_version(env: dict, module_name: str) -> str | None:
+    for item in env.get("imports", []):
+        if item.get("module") == module_name:
+            return item.get("version")
+    return None
 
 
 if __name__ == "__main__":

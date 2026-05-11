@@ -39,6 +39,10 @@ def main() -> int:
             "Use this machine only for CPU/IO/layout diagnostics."
         ),
         "runtime_layout": None,
+        "model_dir": None,
+        "mode": "visualgen_load",
+        "prompt_cache_used": False,
+        "smoke_test_only": False,
         "visualgen_generate_signature": None,
         "visualgen_args_signature": None,
         "cuda_before_load": _cuda_before_load(),
@@ -48,19 +52,34 @@ def main() -> int:
         "worker_stderr_tail": None,
         "detected_oom": False,
         "detected_unsupported_arch": False,
+        "detected_missing_model_index": False,
+        "detected_invalid_safetensors": False,
         "cuda_capability": None,
         "is_blackwell_or_newer": False,
         "nvfp4_target_gpu": False,
+        "gpu_name": None,
+        "vram_total_gb": None,
+        "vram_free_before_load": None,
+        "docker_image": None,
+        "torch_version": None,
+        "tensorrt_llm_version": None,
         "load_time_sec": None,
         "error": None,
         "traceback": None,
         "env": collect_env_info(allow_container=bool(config.runtime.get("allow_docker", False))),
     }
+    torch_cuda = report["env"].get("torch_cuda", {})
     report["cuda_capability"] = report["cuda_before_load"].get("cuda_capability")
     report["is_blackwell_or_newer"] = bool(
         report["cuda_before_load"].get("is_blackwell_or_newer", False)
     )
     report["nvfp4_target_gpu"] = bool(report["cuda_before_load"].get("nvfp4_target_gpu", False))
+    report["gpu_name"] = report["cuda_before_load"].get("gpu_name")
+    report["vram_total_gb"] = report["cuda_before_load"].get("vram_total_gb")
+    report["vram_free_before_load"] = report["cuda_before_load"].get("vram_free_gb")
+    report["docker_image"] = report["env"].get("docker_image")
+    report["torch_version"] = torch_cuda.get("torch_version")
+    report["tensorrt_llm_version"] = _import_version(report["env"], "tensorrt_llm")
 
     visual_gen = None
     stdout_path = config.output_path("diagnostics") / f"check_visualgen_load_{args.variant}_stdout.log"
@@ -70,6 +89,7 @@ def main() -> int:
     try:
         layout = prepare_visualgen_runtime_dir(config, args.variant)
         report["runtime_layout"] = layout
+        report["model_dir"] = layout.get("runtime_dir")
         if layout["missing"]:
             raise FileNotFoundError(
                 "Cannot load VisualGen runtime_dir; missing files: "
@@ -215,10 +235,35 @@ def _set_error_flags(report: dict) -> None:
         "not supported on this device",
         "unsupported architecture",
     ]
+    missing_model_index_patterns = [
+        "model_index.json",
+        "missing model_index",
+        "does not appear to have a file named model_index",
+    ]
+    invalid_safetensors_patterns = [
+        "invalid safetensors",
+        "safetensorerror",
+        "safetensors_rust",
+        "header too large",
+        "metadata incomplete buffer",
+    ]
     report["detected_oom"] = any(pattern in combined for pattern in oom_patterns)
     report["detected_unsupported_arch"] = any(
         pattern in combined for pattern in unsupported_arch_patterns
     )
+    report["detected_missing_model_index"] = any(
+        pattern in combined for pattern in missing_model_index_patterns
+    )
+    report["detected_invalid_safetensors"] = any(
+        pattern in combined for pattern in invalid_safetensors_patterns
+    )
+
+
+def _import_version(env: dict, module_name: str) -> str | None:
+    for item in env.get("imports", []):
+        if item.get("module") == module_name:
+            return item.get("version")
+    return None
 
 
 if __name__ == "__main__":

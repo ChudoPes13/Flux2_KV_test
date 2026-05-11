@@ -77,18 +77,19 @@ cd C:\ai25\Flux2kv_test\flux2_klein_trt_windows
 ```powershell
 docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -it --rm `
   -p 8000:8000 `
-  -e FLUX_ALLOW_DOCKER=1 `
+  -e HF_TOKEN=$env:HF_TOKEN `
   -e HF_HUB_ENABLE_HF_TRANSFER=1 `
   -v C:\ai25\Flux2kv_test:/workspace/Flux2kv_test `
+  -v C:\ai25\hf_cache:/root/.cache/huggingface `
   nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc14 /bin/bash
 ```
 
-Внутри контейнера:
+Внутри контейнера, если работаете из project subdir:
 
 ```bash
 cd /workspace/Flux2kv_test/flux2_klein_trt_windows
 python -m pip install -r requirements-container.txt
-python scripts/00_env_check.py
+python scripts/00_container_check.py
 python scripts/02_encode_prompt.py
 python scripts/03_prepare_inputs.py
 python scripts/validate_runtime_dir.py
@@ -104,7 +105,31 @@ python scripts/mock_low_level_adapter_test.py
 python scripts/rtx50_first_run_check.py
 ```
 
-Этот скрипт выполняет env check, CPU/layout проверки, VisualGen load check для `full` и `txtattn_bf16`, затем `visualgen_prompt_text` smoke-test и `cached_embeddings_strict` strict-test. На не-Blackwell GPU runtime/generation шаги по умолчанию пропускаются; для диагностики можно явно передать `--force-non-target`, но это не является acceptance path.
+Если входите ровно по финальному плану из mounted repo root:
+
+```bash
+cd /workspace/Flux2kv_test
+python scripts/00_container_check.py
+python scripts/rtx50_first_run_check.py
+```
+
+Не запускать `scripts/rtx50_first_run_check.py` как финальный тест на Windows host вне контейнера. На Windows host допустимы только host-check, Git, просмотр файлов и Docker-команды.
+
+Этот скрипт выполняет проверки в фиксированном порядке:
+
+1. container/env diagnostics
+2. `validate_runtime_dir.py`
+3. `inspect_apacheone_checkpoint.py`
+4. `mock_low_level_adapter_test.py`
+5. `check_visualgen_supported_model.py`
+6. `check_visualgen_load.py --variant full`
+7. `check_visualgen_load.py --variant txtattn_bf16`
+8. `visualgen_prompt_text` smoke-test
+9. `cached_embeddings_strict` strict-test
+
+Если official supported VisualGen model падает, ApacheOne/Klein-KV проверки загрузки и generation steps пропускаются. На не-Blackwell GPU runtime/generation шаги по умолчанию пропускаются; для диагностики можно явно передать `--force-non-target`, но это не является acceptance path.
+
+После `rtx50_first_run_check.py` ничего не менять автоматически. Сначала открыть `data/diagnostics/rtx50_first_run_report.json`, определить категорию ошибки и только потом выбирать следующий шаг.
 
 ## Ручная загрузка моделей
 

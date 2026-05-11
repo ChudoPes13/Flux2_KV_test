@@ -32,6 +32,8 @@ RUNTIME_IMPORTS = [
     ("tensorrt_llm", "tensorrt-llm"),
 ]
 
+DEFAULT_DOCKER_IMAGE = "nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc14"
+
 
 @dataclass(frozen=True)
 class ImportStatus:
@@ -112,6 +114,8 @@ def _torch_cuda_info() -> dict[str, Any]:
         "cuda_version": getattr(torch.version, "cuda", None),
         "gpu_name": None,
         "vram_total_gb": None,
+        "vram_free_before_load_gb": None,
+        "vram_free_before_load_bytes": None,
         "cuda_capability": None,
         "is_blackwell_or_newer": False,
         "nvfp4_target_gpu": False,
@@ -121,11 +125,14 @@ def _torch_cuda_info() -> dict[str, Any]:
         props = torch.cuda.get_device_properties(device_index)
         cuda_capability = list(torch.cuda.get_device_capability(device_index))
         is_blackwell_or_newer = _is_blackwell_or_newer(cuda_capability)
+        free_bytes, total_bytes = torch.cuda.mem_get_info(device_index)
         info.update(
             {
                 "device_index": device_index,
                 "gpu_name": props.name,
-                "vram_total_gb": round(props.total_memory / (1024**3), 2),
+                "vram_total_gb": round(total_bytes / (1024**3), 2),
+                "vram_free_before_load_gb": round(free_bytes / (1024**3), 3),
+                "vram_free_before_load_bytes": int(free_bytes),
                 "multi_processor_count": props.multi_processor_count,
                 "cuda_capability": cuda_capability,
                 "is_blackwell_or_newer": is_blackwell_or_newer,
@@ -187,6 +194,9 @@ def collect_env_info(*, allow_container: bool = False) -> dict[str, Any]:
     cuda_capability = torch_cuda.get("cuda_capability")
     is_blackwell_or_newer = bool(torch_cuda.get("is_blackwell_or_newer", False))
     nvfp4_target_gpu = bool(torch_cuda.get("nvfp4_target_gpu", False))
+    docker_image = os.environ.get("FLUX_DOCKER_IMAGE") or os.environ.get(
+        "NVIDIA_CONTAINER_IMAGE", DEFAULT_DOCKER_IMAGE
+    )
 
     status = "ok" if not errors else "error"
     return {
@@ -196,6 +206,10 @@ def collect_env_info(*, allow_container: bool = False) -> dict[str, Any]:
         "cuda_capability": cuda_capability,
         "is_blackwell_or_newer": is_blackwell_or_newer,
         "nvfp4_target_gpu": nvfp4_target_gpu,
+        "gpu_name": torch_cuda.get("gpu_name"),
+        "vram_total_gb": torch_cuda.get("vram_total_gb"),
+        "vram_free_before_load": torch_cuda.get("vram_free_before_load_gb"),
+        "docker_image": docker_image,
         "python_version": platform.python_version(),
         "python_executable": sys.executable,
         "platform": platform.platform(),

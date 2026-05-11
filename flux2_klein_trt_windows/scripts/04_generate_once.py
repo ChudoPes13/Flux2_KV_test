@@ -13,6 +13,7 @@ from flux_trt.diagnostics import write_diagnostic
 from flux_trt.env import collect_env_info
 from flux_trt.pipeline_adapter import FluxTrtPipelineAdapter
 from flux_trt.report import base_run_report, copy_if_exists, create_run_dir, write_run_report
+from flux_trt.runtime_layout import runtime_dir_for_variant
 
 
 MODES = ["cached_embeddings_strict", "visualgen_prompt_text"]
@@ -63,7 +64,15 @@ def run_once(
         env = collect_env_info(allow_container=bool(config.runtime.get("allow_docker", False)))
         torch_cuda = env.get("torch_cuda", {})
         report["gpu_name"] = torch_cuda.get("gpu_name")
+        report["cuda_capability"] = torch_cuda.get("cuda_capability")
+        report["is_blackwell_or_newer"] = torch_cuda.get("is_blackwell_or_newer")
+        report["nvfp4_target_gpu"] = torch_cuda.get("nvfp4_target_gpu")
         report["vram_total_gb"] = torch_cuda.get("vram_total_gb")
+        report["vram_free_before_load"] = torch_cuda.get("vram_free_before_load_gb")
+        report["docker_image"] = env.get("docker_image")
+        report["torch_version"] = torch_cuda.get("torch_version")
+        report["tensorrt_llm_version"] = _import_version(env, "tensorrt_llm")
+        report["model_dir"] = str(runtime_dir_for_variant(config, variant))
         if env["status"] != "ok":
             raise RuntimeError("Environment is not ready: " + "; ".join(env["errors"]))
 
@@ -101,6 +110,7 @@ def run_once(
     except Exception as exc:  # noqa: BLE001
         report["status"] = "error"
         report["error"] = str(exc)
+        _set_error_flags(report, str(exc))
         write_diagnostic(
             config.output_path("diagnostics"),
             "generate",
@@ -147,6 +157,49 @@ def _add_vram_peak(report: dict) -> None:
             )
     except Exception:  # noqa: BLE001
         return
+
+
+def _set_error_flags(report: dict, text: str) -> None:
+    combined = text.lower()
+    report["detected_oom"] = any(
+        pattern in combined
+        for pattern in ["out of memory", "cuda oom", "cuda error: out of memory", "cublas_status_alloc_failed"]
+    )
+    report["detected_unsupported_arch"] = any(
+        pattern in combined
+        for pattern in [
+            "unsupported gpu architecture",
+            "no kernel image is available",
+            "invalid device function",
+            "not supported on this device",
+            "unsupported architecture",
+        ]
+    )
+    report["detected_missing_model_index"] = any(
+        pattern in combined
+        for pattern in [
+            "model_index.json",
+            "missing model_index",
+            "does not appear to have a file named model_index",
+        ]
+    )
+    report["detected_invalid_safetensors"] = any(
+        pattern in combined
+        for pattern in [
+            "invalid safetensors",
+            "safetensorerror",
+            "safetensors_rust",
+            "header too large",
+            "metadata incomplete buffer",
+        ]
+    )
+
+
+def _import_version(env: dict, module_name: str) -> str | None:
+    for item in env.get("imports", []):
+        if item.get("module") == module_name:
+            return item.get("version")
+    return None
 
 
 def main() -> int:

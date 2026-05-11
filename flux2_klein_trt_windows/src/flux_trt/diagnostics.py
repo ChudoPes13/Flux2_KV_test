@@ -59,6 +59,8 @@ def write_diagnostic(
         "nvfp4_target_gpu": torch_cuda.get("nvfp4_target_gpu"),
         "gpu_name": torch_cuda.get("gpu_name"),
         "vram_total_gb": torch_cuda.get("vram_total_gb"),
+        "vram_free_before_load": torch_cuda.get("vram_free_before_load_gb"),
+        "docker_image": env.get("docker_image") if isinstance(env, dict) else None,
         "env": env,
     }
     if extra:
