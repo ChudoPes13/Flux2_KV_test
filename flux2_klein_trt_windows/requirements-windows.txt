@@ -1,0 +1,23 @@
+# Keep versions unpinned. Install Python 3.12 first.
+# If PyTorch CUDA wheels are not resolved by pip in your environment,
+# install torch/torchvision/torchaudio from the current PyTorch CUDA Windows index,
+# then rerun this requirements file.
+#torch
+#torchvision
+#torchaudio
+diffusers
+transformers
+accelerate
+safetensors
+huggingface_hub
+hf_transfer
+pillow
+numpy
+pyyaml
+pydantic
+psutil
+rich
+tqdm
+bitsandbytes
+triton-windows
+pytest

@@ -1,0 +1,14 @@
+{
+  "total_tensors": 201,
+  "action_counts": {
+    "bf16": 105,
+    "nvfp4": 96
+  },
+  "failures_by_action": {},
+  "rule_source_counts": {
+    "default_other": 64,
+    "default_2d_weight": 96,
+    "profile_blacklist": 41
+  },
+  "chain_exhausted": 0
+}

@@ -1,0 +1,68 @@
+project:
+  name: flux2_klein_trt_windows
+  os: windows
+  python: "3.12"
+  device: cuda
+
+models:
+  base_repo: black-forest-labs/FLUX.2-klein-9b-kv
+  apacheone_repo: ApacheOne/FLUX.2-klein-9b-kv-nvfp4_mixed
+  apacheone_dir: models/apacheone
+  bfl_dir: models/bfl
+  experimental_dir: models/experimental
+
+checkpoints:
+  full: models/apacheone/flux2-klein-9b-kv-nvfp4.safetensors
+  txtattn_bf16: models/apacheone/flux2-klein-9b-kv-nvfp4_txtattnBF16.safetensors
+
+input:
+  prompt_path: data/input/prompt.txt
+  user_photo_path: data/input/user_photo.png
+  logo_path: data/input/logo.png
+
+cache:
+  root: data/cache
+  prompt_dir: data/cache/prompt/main_prompt
+  user_photo_dir: data/cache/images/user_photo
+  logo_dir: data/cache/images/logo
+  kv_dir: data/cache/kv
+
+generation:
+  width: 1024
+  height: 1024
+  logo_width: 512
+  logo_height: 512
+  steps: 4
+  seed: 42
+  batch_size: 1
+  guidance_scale: 4.0
+
+output:
+  root: data/output
+  diagnostics: data/diagnostics
+
+runtime:
+  prefer_tensorrt: true
+  prefer_visualgen: true
+  allow_diffusers_fallback: false
+  allow_prompt_text_in_generation: false
+  allow_docker: true
+  allow_wsl: false
+
+experimental:
+  text_encoder:
+    default_variant: aifeifei_4bit
+    variants:
+      official:
+        source: black-forest-labs/FLUX.2-klein-9b-kv
+        cache_dir: data/cache/prompt/main_prompt
+      aifeifei_4bit:
+        repo: aifeifei798/FLUX.2-klein-9B-text_encoder-4bit
+        local_dir: models/experimental/text_encoder/aifeifei_4bit
+        cache_dir: data/cache/prompt/main_prompt_aifeifei_4bit
+        note: Experimental 4-bit text encoder; use only for prompt-cache tests.
+  transformer:
+    ozzygt_bnb_4bit:
+      repo: OzzyGT/flux2_klein_9B_bnb_4bit_transformer
+      local_dir: models/experimental/transformer/ozzygt_bnb_4bit
+      note: Experimental 4-bit transformer, not a text encoder.

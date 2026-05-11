@@ -1,0 +1,15 @@
+{
+  "total_tensors": 201,
+  "action_counts": {
+    "bf16": 89,
+    "nvfp4": 112
+  },
+  "failures_by_action": {},
+  "rule_source_counts": {
+    "default_other": 80,
+    "default_2d_weight": 96,
+    "generic_rule:flux_kv_txt_attn_weights_quant": 16,
+    "profile_blacklist": 9
+  },
+  "chain_exhausted": 0
+}

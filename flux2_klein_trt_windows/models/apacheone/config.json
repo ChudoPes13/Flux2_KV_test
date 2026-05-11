@@ -1,0 +1,4 @@
+{
+  "_comment": "Root config file added primarily to enable download tracking for this repository containing multiple models/components in subfolders. Specific configurations may exist within subdirectories.",
+  "model_type": "custom"
+}

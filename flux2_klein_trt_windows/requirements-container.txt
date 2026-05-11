@@ -1,0 +1,23 @@
+# Intended for the NVIDIA TensorRT-LLM Linux container.
+# The container should already include TensorRT/TensorRT-LLM/CUDA pieces.
+# Keep versions unpinned unless a compatibility issue is diagnosed.
+torch
+torchvision
+torchaudio
+diffusers
+transformers
+accelerate
+safetensors
+huggingface_hub
+hf_transfer
+pillow
+numpy
+pyyaml
+pydantic
+psutil
+rich
+tqdm
+pytest
+# Needed only when visualgen_prompt_text loads the experimental aifeifei 4-bit text_encoder.
+# cached_embeddings_strict does not use bitsandbytes in the generation step.
+bitsandbytes
