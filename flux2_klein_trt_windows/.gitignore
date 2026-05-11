@@ -19,6 +19,7 @@ data/output/**
 !data/output/
 !data/output/.gitkeep
 data/diagnostics/*.json
+data/diagnostics/*.log
 
 models/apacheone/*.safetensors
 models/bfl/*

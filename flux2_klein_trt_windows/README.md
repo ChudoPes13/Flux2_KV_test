@@ -98,6 +98,14 @@ python scripts/mock_low_level_adapter_test.py
 
 `trtllm-serve` endpoint сам по себе не решает задачу cached prompt embeddings: public serving path обычно принимает prompt text. Для этого проекта важен offline Python VisualGen/API path. Если external prompt embeddings не поддерживаются, generation пишет diagnostic и останавливается.
 
+Первый реальный runtime test запускать на RTX 5060 Ti / RTX 5090 или другой Blackwell-class GPU:
+
+```bash
+python scripts/rtx50_first_run_check.py
+```
+
+Этот скрипт выполняет env check, CPU/layout проверки, VisualGen load check для `full` и `txtattn_bf16`, затем `visualgen_prompt_text` smoke-test и `cached_embeddings_strict` strict-test. На не-Blackwell GPU runtime/generation шаги по умолчанию пропускаются; для диагностики можно явно передать `--force-non-target`, но это не является acceptance path.
+
 ## Ручная загрузка моделей
 
 Большие файлы проект сам не скачивает по умолчанию. Команда ниже только печатает план и пишет `data/diagnostics/download_plan.json`:
@@ -242,7 +250,19 @@ External prompt embeddings are not supported by the current VisualGen interface 
 
 `visualgen_prompt_text` - временный smoke-test режим. Он использует prompt text через public TensorRT-LLM VisualGen API, пишет `prompt_cache_used=false` и `smoke_test_only=true` в `run_report.json`, и не считается целевой архитектурой.
 
-До запуска на RTX 50 / Blackwell-class GPU `output.png` не является acceptance criteria. На RTX 3070 этот проект используется только для CPU/IO/layout/cache/diagnostic проверок. Скрипт `check_visualgen_load.py` явно пишет CUDA capability, free VRAM before load, `detected_oom`, `detected_unsupported_arch` и предупреждение, что RTX 3070 не является целевой GPU для NVFP4.
+До запуска на RTX 50 / Blackwell-class GPU `output.png` не является acceptance criteria. На RTX 3070 этот проект используется только для CPU/IO/layout/cache/diagnostic проверок. Скрипт `check_visualgen_load.py` явно пишет `cuda_capability`, `is_blackwell_or_newer`, `nvfp4_target_gpu`, free VRAM before load, `detected_oom`, `detected_unsupported_arch` и предупреждение, что RTX 3070 не является целевой GPU для NVFP4.
+
+Первый реальный runtime test делать на RTX 5060 Ti / RTX 5090:
+
+```bash
+python scripts/rtx50_first_run_check.py
+```
+
+Единый отчет:
+
+```text
+data/diagnostics/rtx50_first_run_report.json
+```
 
 ## Режимы генерации
 
@@ -282,6 +302,14 @@ python scripts\mock_low_level_adapter_test.py
 `inspect_apacheone_checkpoint.py` читает safetensors header на CPU, считает tensors/dtypes/key prefixes, пишет key shapes и проверяет `txt_in.weight` на совместимость с шириной `prompt_embeds=12288`.
 
 `mock_low_level_adapter_test.py` загружает cached prompt tensors, normalized user photo/logo, собирает `GenerationInputs`, проверяет shapes/dtypes и не запускает реальную генерацию.
+
+Для отделения проблем TensorRT-LLM VisualGen от проблем ApacheOne/Klein-KV есть отдельная проверка официального VisualGen-compatible model path:
+
+```bash
+python scripts/check_visualgen_supported_model.py
+```
+
+По умолчанию используется `black-forest-labs/FLUX.2-dev`. Скрипт не использует ApacheOne runtime layout и пишет отдельный diagnostic report в `data/diagnostics/`.
 
 ## Проверки разработки
 

@@ -112,19 +112,37 @@ def _torch_cuda_info() -> dict[str, Any]:
         "cuda_version": getattr(torch.version, "cuda", None),
         "gpu_name": None,
         "vram_total_gb": None,
+        "cuda_capability": None,
+        "is_blackwell_or_newer": False,
+        "nvfp4_target_gpu": False,
     }
     if torch.cuda.is_available():
         device_index = torch.cuda.current_device()
         props = torch.cuda.get_device_properties(device_index)
+        cuda_capability = list(torch.cuda.get_device_capability(device_index))
+        is_blackwell_or_newer = _is_blackwell_or_newer(cuda_capability)
         info.update(
             {
                 "device_index": device_index,
                 "gpu_name": props.name,
                 "vram_total_gb": round(props.total_memory / (1024**3), 2),
                 "multi_processor_count": props.multi_processor_count,
+                "cuda_capability": cuda_capability,
+                "is_blackwell_or_newer": is_blackwell_or_newer,
+                "nvfp4_target_gpu": is_blackwell_or_newer,
             }
         )
     return info
+
+
+def _is_blackwell_or_newer(cuda_capability: list[int] | tuple[int, int] | None) -> bool:
+    if not cuda_capability:
+        return False
+    try:
+        major = int(cuda_capability[0])
+    except (TypeError, ValueError):
+        return False
+    return major >= 12
 
 
 def running_in_container() -> bool:
@@ -166,11 +184,18 @@ def collect_env_info(*, allow_container: bool = False) -> dict[str, Any]:
     if not torch_cuda.get("cuda_available"):
         errors.append("torch.cuda.is_available() is false.")
 
+    cuda_capability = torch_cuda.get("cuda_capability")
+    is_blackwell_or_newer = bool(torch_cuda.get("is_blackwell_or_newer", False))
+    nvfp4_target_gpu = bool(torch_cuda.get("nvfp4_target_gpu", False))
+
     status = "ok" if not errors else "error"
     return {
         "status": status,
         "errors": errors,
         "warnings": warnings,
+        "cuda_capability": cuda_capability,
+        "is_blackwell_or_newer": is_blackwell_or_newer,
+        "nvfp4_target_gpu": nvfp4_target_gpu,
         "python_version": platform.python_version(),
         "python_executable": sys.executable,
         "platform": platform.platform(),

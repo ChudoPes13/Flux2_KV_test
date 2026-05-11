@@ -48,11 +48,19 @@ def main() -> int:
         "worker_stderr_tail": None,
         "detected_oom": False,
         "detected_unsupported_arch": False,
+        "cuda_capability": None,
+        "is_blackwell_or_newer": False,
+        "nvfp4_target_gpu": False,
         "load_time_sec": None,
         "error": None,
         "traceback": None,
         "env": collect_env_info(allow_container=bool(config.runtime.get("allow_docker", False))),
     }
+    report["cuda_capability"] = report["cuda_before_load"].get("cuda_capability")
+    report["is_blackwell_or_newer"] = bool(
+        report["cuda_before_load"].get("is_blackwell_or_newer", False)
+    )
+    report["nvfp4_target_gpu"] = bool(report["cuda_before_load"].get("nvfp4_target_gpu", False))
 
     visual_gen = None
     stdout_path = config.output_path("diagnostics") / f"check_visualgen_load_{args.variant}_stdout.log"
@@ -118,8 +126,11 @@ def _cuda_before_load() -> dict:
             "vram_free_bytes": None,
             "vram_total_gb": None,
             "vram_free_gb": None,
+            "cuda_capability": None,
             "is_rtx_50_target_gpu": False,
             "is_rtx_3070": False,
+            "is_blackwell_or_newer": False,
+            "nvfp4_target_gpu": False,
         }
         if torch.cuda.is_available():
             device_index = torch.cuda.current_device()
@@ -132,12 +143,15 @@ def _cuda_before_load() -> dict:
                     "device_index": device_index,
                     "gpu_name": name,
                     "capability": capability,
+                    "cuda_capability": capability,
                     "vram_total_bytes": int(total_bytes),
                     "vram_free_bytes": int(free_bytes),
                     "vram_total_gb": round(total_bytes / (1024**3), 3),
                     "vram_free_gb": round(free_bytes / (1024**3), 3),
                     "is_rtx_50_target_gpu": "RTX 50" in name.upper() or capability[0] >= 12,
                     "is_rtx_3070": "3070" in name.upper(),
+                    "is_blackwell_or_newer": capability[0] >= 12,
+                    "nvfp4_target_gpu": capability[0] >= 12,
                 }
             )
         return info
